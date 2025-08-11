@@ -1,48 +1,58 @@
-import React, { useState, useEffect } from 'react';
-import logo from './logo.svg';
+import React from 'react';
 import './App.css';
+import AppHeader from './components/Header';
+import Sidebar from './components/Sidebar';
+import MainContent from './components/MainContent';
+import FavoritesView from './views/FavoritesView';
+import CollectionsView from './views/CollectionsView';
+import { RecipeStoreProvider } from './context/RecipeStoreContext';
+import { RECIPES, getCategories } from './data/recipes';
 
 // PUBLIC_INTERFACE
+/**
+ * Root application component. Renders layout and routes between simple views.
+ */
 function App() {
-  const [theme, setTheme] = useState('light');
+  const [query, setQuery] = React.useState('');
+  const [category, setCategory] = React.useState('All');
+  const [view, setView] = React.useState('home'); // 'home' | 'favorites' | 'collections'
 
-  // Effect to apply theme to document element
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+  // Filtering logic by query and category
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return RECIPES.filter(r => {
+      const matchesQuery = q.length === 0
+        || r.title.toLowerCase().includes(q)
+        || r.ingredients.some(ing => ing.toLowerCase().includes(q));
+      const matchesCategory = category === 'All' || r.category === category;
+      return matchesQuery && matchesCategory;
+    });
+  }, [query, category]);
 
-  // PUBLIC_INTERFACE
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-  };
+  const categories = React.useMemo(() => getCategories(), []);
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <button 
-          className="theme-toggle" 
-          onClick={toggleTheme}
-          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-        >
-          {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-        </button>
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <p>
-          Current theme: <strong>{theme}</strong>
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <RecipeStoreProvider>
+      <div className="app-shell">
+        <AppHeader onSearch={setQuery} currentView={view} onChangeView={setView} />
+        <div className="app-body">
+          <Sidebar categories={categories} active={category} onChange={setCategory} />
+          <div className="app-content">
+            {view === 'home' && (
+              <>
+                <h2 className="section-heading">Browse Recipes</h2>
+                <MainContent recipes={filtered} />
+                {filtered.length === 0 && (
+                  <p className="muted">No recipes found. Try a different search or category.</p>
+                )}
+              </>
+            )}
+            {view === 'favorites' && <FavoritesView />}
+            {view === 'collections' && <CollectionsView />}
+          </div>
+        </div>
+      </div>
+    </RecipeStoreProvider>
   );
 }
 
